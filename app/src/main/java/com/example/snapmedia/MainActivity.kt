@@ -178,7 +178,6 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     takePhoto(
                                         context = applicationContext,
-                                        contentResolver = contentResolver,
                                         controller = controller,
                                         onPhotoTaken = viewModel::onTakePhoto
                                     )
