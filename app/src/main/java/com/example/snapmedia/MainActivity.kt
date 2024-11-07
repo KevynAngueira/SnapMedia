@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -52,20 +53,30 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.snapmedia.ui.theme.SnapMediaTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import com.example.snapmedia.primitives.hasRequiredPermissions
+import com.example.snapmedia.primitives.CAMERAX_PERMISSIONS
+import com.example.snapmedia.primitives.takePhoto
 
 class MainActivity : ComponentActivity() {
     //TODO
     private var readPermissionGranted = false
     private var writePermissionGranted = false
-
     private lateinit var permissionsLauncher: ActivityResultLauncher<Array<String>>
-    //private lateinit var externalStoragePhotoAdapter: SharedPhotoAdapter
+
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var photosAdapter: SharedPhotoAdapter
+    private lateinit var photosList: List<SharedStoragePhoto>
 
     private var recording: Recording? = null
 
@@ -75,7 +86,7 @@ class MainActivity : ComponentActivity() {
 
         // Get permissions
         // TODO: Change this for real permission handling
-        if (!hasRequiredPermissions()) {
+        if (!hasRequiredPermissions(applicationContext)) {
             ActivityCompat.requestPermissions(
                 this, CAMERAX_PERMISSIONS, 0
             )
@@ -88,6 +99,25 @@ class MainActivity : ComponentActivity() {
         }
         updateOrRequestPermissions()
 
+        /*
+        setContentView(R.layout.activity_photos)
+
+        recyclerView = findViewById(R.id.recyclerView)
+        recyclerView.layoutManager = GridLayoutManager(this, 2)
+        photosAdapter = SharedPhotoAdapter(emptyList()) // Initialize with empty list
+        recyclerView.adapter = photosAdapter
+
+
+        // Load photos from external storage in a coroutine
+        lifecycleScope.launch {
+            photosList = loadPhotosFromExternalStorage()
+            // Update the adapter with the loaded photos
+            photosAdapter = SharedPhotoAdapter(photosList)
+            recyclerView.adapter = photosAdapter
+        }
+        */
+
+        ///*
         setContent{
             SnapMediaTheme {
 
@@ -101,7 +131,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 val viewModel = viewModel<GalleryViewModel>()
-                val bitmaps by viewModel.bitmaps.collectAsState()
+                val photos by viewModel.photos.collectAsState()
 
                 // Creating Scaffold to house gallery
                 BottomSheetScaffold(
@@ -109,7 +139,7 @@ class MainActivity : ComponentActivity() {
                     sheetPeekHeight = 0.dp,
                     sheetContent = {
                         GalleryContent(
-                            bitmaps = bitmaps,
+                            photos = photos,
                             modifier = Modifier
                                 .fillMaxWidth()
                         )
@@ -168,6 +198,8 @@ class MainActivity : ComponentActivity() {
                             IconButton(
                                 onClick = {
                                     takePhoto(
+                                        context = applicationContext,
+                                        contentResolver = contentResolver,
                                         controller = controller,
                                         onPhotoTaken = viewModel::onTakePhoto
                                     )
@@ -196,8 +228,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+         //*/
     }
 
+    /*
     //TODO: Find a way to organize files more clearly
     //TODO: Add visual and audio indicator of taking photo
     /**
@@ -209,10 +243,8 @@ class MainActivity : ComponentActivity() {
      */
     private fun takePhoto(
         controller: LifecycleCameraController,
-        onPhotoTaken: (Bitmap) -> Unit
+        onPhotoTaken: (SharedStoragePhoto) -> Unit
     ) {
-
-        Log.d("TakePic", "Take Picture Pls")
 
         // Edge: Handle missing permissions
         if(!hasRequiredPermissions()) {
@@ -241,8 +273,10 @@ class MainActivity : ComponentActivity() {
                         true
                     )
 
-                    onPhotoTaken(rotatedBitmap)
-                    savePhotoToExternalStorage(UUID.randomUUID().toString(), rotatedBitmap)
+                    val photo: SharedStoragePhoto? = savePhotoToExternalStorage(UUID.randomUUID().toString(), rotatedBitmap)
+                    if (photo != null) {
+                        onPhotoTaken(photo)
+                    }
                 }
 
                 // Handling image capture failure
@@ -252,6 +286,8 @@ class MainActivity : ComponentActivity() {
             }
         )
     }
+
+     */
 
     //TODO: Find a way to organize files more clearly
     //TODO: Add visual and audio indicator of recording video start and stop
@@ -272,7 +308,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Edge: Handle missing permissions
-        if(!hasRequiredPermissions()) {
+        if(!hasRequiredPermissions(applicationContext)) {
             return
         }
 
@@ -307,6 +343,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /*
     /**
      * Checks if proper permissions have been granted to use CameraX
      * @return {boolean}
@@ -331,6 +368,8 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+
+     */
 
     //TODO: Ensure external storage code is working
     /**
@@ -369,6 +408,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /*
     /**
      * Saves a given image in bitmap form to External/Scoped storage
      * @param {controller} : LifeCycleCameraController
@@ -376,9 +416,9 @@ class MainActivity : ComponentActivity() {
      * @param {onPhotoTaken} : Function
      *      The function to be performed on the image
      */
-    private fun savePhotoToExternalStorage(displayName: String, bmp: Bitmap): Boolean {
+    private fun savePhotoToExternalStorage(displayName: String, bmp: Bitmap): SharedStoragePhoto? {
         // Get MediaStore URI dependent on build version
-        val imageCollection = sdk29AndUo {
+        val imageCollection = sdk29AndUp {
             MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         } ?: MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
@@ -392,7 +432,8 @@ class MainActivity : ComponentActivity() {
 
         return try {
             // Store image Metadata at URI
-            contentResolver.insert(imageCollection, contentValues)?.also { uri ->
+            val uri = contentResolver.insert(imageCollection, contentValues)
+            uri?.let{
                 // Store image Bitmap through an output stream
                 contentResolver.openOutputStream(uri).use { outputStream ->
                     outputStream?.let {
@@ -403,10 +444,61 @@ class MainActivity : ComponentActivity() {
                     } ?: throw IOException("Null output stream")
                 }
             } ?: throw IOException("Couldn't create MediaStore entry")
-            true
+
+            val id = uri.lastPathSegment?.toLongOrNull() ?: -1L
+            SharedStoragePhoto(
+                id = id,
+                name = displayName,
+                width = bmp.width,
+                height = bmp.height,
+                contentUri = uri
+            )
+
         } catch (e: IOException) {
             e.printStackTrace()
-            false
+            null
+        }
+    }
+     */
+
+    private suspend fun loadPhotosFromExternalStorage(): List<SharedStoragePhoto> {
+        return withContext(Dispatchers.IO) {
+            val collection = sdk29AndUp {
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            } ?: MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+
+            val projection = arrayOf(
+                MediaStore.Images.Media._ID,
+                MediaStore.Images.Media.DISPLAY_NAME,
+                MediaStore.Images.Media.WIDTH,
+                MediaStore.Images.Media.HEIGHT,
+            )
+            val photos = mutableListOf<SharedStoragePhoto>()
+            contentResolver.query(
+                collection,
+                projection,
+                null,
+                null,
+                "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
+            )?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+                val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+                val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
+                val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
+
+                while(cursor.moveToNext()) {
+                    val id = cursor.getLong(idColumn)
+                    val displayName = cursor.getString(displayNameColumn)
+                    val width = cursor.getInt(widthColumn)
+                    val height = cursor.getInt(heightColumn)
+                    val contentUri = ContentUris.withAppendedId(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        id
+                    )
+                    photos.add(SharedStoragePhoto(id, displayName, width, height, contentUri))
+                }
+                photos.toList()
+            } ?: listOf()
         }
     }
 
