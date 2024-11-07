@@ -5,28 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.ContentUris
-import android.content.ContentValues
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Matrix
 import android.os.Build
-import android.provider.MediaStore
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture.OnImageCapturedCallback
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
-import androidx.camera.video.FileOutputOptions
-import androidx.camera.video.Recording
-import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
-import androidx.camera.view.video.AudioConfig
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -53,20 +38,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.example.snapmedia.ui.theme.SnapMediaTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.IOException
-import java.util.UUID
+
 import com.example.snapmedia.primitives.hasRequiredPermissions
 import com.example.snapmedia.primitives.CAMERAX_PERMISSIONS
 import com.example.snapmedia.primitives.takePhoto
+import com.example.snapmedia.primitives.recordVideo
 
 class MainActivity : ComponentActivity() {
     //TODO
@@ -74,11 +53,11 @@ class MainActivity : ComponentActivity() {
     private var writePermissionGranted = false
     private lateinit var permissionsLauncher: ActivityResultLauncher<Array<String>>
 
+    /*
     private lateinit var recyclerView: RecyclerView
     private lateinit var photosAdapter: SharedPhotoAdapter
     private lateinit var photosList: List<SharedStoragePhoto>
-
-    private var recording: Recording? = null
+     */
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -214,7 +193,10 @@ class MainActivity : ComponentActivity() {
                             // Record Video Button
                             IconButton(
                                 onClick = {
-                                    recordVideo(controller)
+                                    recordVideo(
+                                        context = applicationContext,
+                                        controller = controller
+                                    )
                                 }
                             ) {
                                 Icon(
@@ -230,146 +212,6 @@ class MainActivity : ComponentActivity() {
         }
          //*/
     }
-
-    /*
-    //TODO: Find a way to organize files more clearly
-    //TODO: Add visual and audio indicator of taking photo
-    /**
-     * Takes an image and then runs {onPhotoTaken} function on the resulting image
-     * @param {controller} : LifecycleCameraController
-     *      the controller for the camera
-     * @param {onPhotoTaken} : (Bitmap) -> Unit
-     *      function ran on resulting image bitmap
-     */
-    private fun takePhoto(
-        controller: LifecycleCameraController,
-        onPhotoTaken: (SharedStoragePhoto) -> Unit
-    ) {
-
-        // Edge: Handle missing permissions
-        if(!hasRequiredPermissions()) {
-            return
-        }
-
-        controller.takePicture(
-            ContextCompat.getMainExecutor(applicationContext),
-            object: OnImageCapturedCallback() {
-                // Handling image capture success
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    super.onCaptureSuccess(image)
-
-                    // Rotate image to correct orientation
-                    val matrix = Matrix().apply{
-                        postRotate(image.imageInfo.rotationDegrees.toFloat())
-                        //postScale(-1f, 1f) // Flip camera
-                    }
-                    val rotatedBitmap = Bitmap.createBitmap(
-                        image.toBitmap(),
-                        0,
-                        0,
-                        image.width,
-                        image.height,
-                        matrix,
-                        true
-                    )
-
-                    val photo: SharedStoragePhoto? = savePhotoToExternalStorage(UUID.randomUUID().toString(), rotatedBitmap)
-                    if (photo != null) {
-                        onPhotoTaken(photo)
-                    }
-                }
-
-                // Handling image capture failure
-                override fun onError(exception: ImageCaptureException) {
-                    super.onError(exception)
-                }
-            }
-        )
-    }
-
-     */
-
-    //TODO: Find a way to organize files more clearly
-    //TODO: Add visual and audio indicator of recording video start and stop
-    /**
-     * Records a video from now until this function is called again, and saves the resulting video
-     * to external/scoped storage
-     * @param {controller} : LifecycleCameraController
-     *      the controller for the camera
-     */
-    @SuppressLint("MissingPermission")
-    private fun recordVideo(controller: LifecycleCameraController) {
-
-        // If recording in process, stop recording
-        if(recording != null) {
-            recording?.stop()
-            recording = null
-            return
-        }
-
-        // Edge: Handle missing permissions
-        if(!hasRequiredPermissions(applicationContext)) {
-            return
-        }
-
-        // If no recording in process, start recording
-        val outputFile = File(filesDir, "my-recording.mp4")
-        recording = controller.startRecording(
-            FileOutputOptions.Builder(outputFile).build(),
-            AudioConfig.create(true),
-            ContextCompat.getMainExecutor(applicationContext),
-        ) { event ->
-            when (event) {
-                is VideoRecordEvent.Finalize -> {
-                    if(event.hasError()) {
-                        recording?.close()
-                        recording = null
-
-                        Toast.makeText(
-                            applicationContext,
-                            "Video capture failed",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
-                        Toast.makeText(
-                            applicationContext,
-                            "Video capture succeeded",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-            }
-
-        }
-    }
-
-    /*
-    /**
-     * Checks if proper permissions have been granted to use CameraX
-     * @return {boolean}
-     *      True if all permissions granted, false otherwise
-     */
-    private fun hasRequiredPermissions(): Boolean {
-        return CAMERAX_PERMISSIONS.all {
-            ContextCompat.checkSelfPermission(
-                applicationContext,
-                it
-            ) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
-    /**
-     * Permission object for CameraX permission checking
-     */
-    companion object {
-        private val CAMERAX_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO,
-        )
-    }
-
-
-     */
 
     //TODO: Ensure external storage code is working
     /**
@@ -407,119 +249,4 @@ class MainActivity : ComponentActivity() {
             permissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
-
-    /*
-    /**
-     * Saves a given image in bitmap form to External/Scoped storage
-     * @param {controller} : LifeCycleCameraController
-     *      the Camera controller
-     * @param {onPhotoTaken} : Function
-     *      The function to be performed on the image
-     */
-    private fun savePhotoToExternalStorage(displayName: String, bmp: Bitmap): SharedStoragePhoto? {
-        // Get MediaStore URI dependent on build version
-        val imageCollection = sdk29AndUp {
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        } ?: MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-
-        // Create image Metadata
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "$displayName.jpg")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpg")
-            put(MediaStore.Images.Media.WIDTH, bmp.width)
-            put(MediaStore.Images.Media.HEIGHT, bmp.height)
-        }
-
-        return try {
-            // Store image Metadata at URI
-            val uri = contentResolver.insert(imageCollection, contentValues)
-            uri?.let{
-                // Store image Bitmap through an output stream
-                contentResolver.openOutputStream(uri).use { outputStream ->
-                    outputStream?.let {
-                        if(!bmp.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)) {
-                            //if(!outputStream?.let { bmp.compress(Bitmap.CompressFormat.JPEG, 95, it) }!!) {
-                            throw IOException("Couldn't save bitmap")
-                        }
-                    } ?: throw IOException("Null output stream")
-                }
-            } ?: throw IOException("Couldn't create MediaStore entry")
-
-            val id = uri.lastPathSegment?.toLongOrNull() ?: -1L
-            SharedStoragePhoto(
-                id = id,
-                name = displayName,
-                width = bmp.width,
-                height = bmp.height,
-                contentUri = uri
-            )
-
-        } catch (e: IOException) {
-            e.printStackTrace()
-            null
-        }
-    }
-     */
-
-    private suspend fun loadPhotosFromExternalStorage(): List<SharedStoragePhoto> {
-        return withContext(Dispatchers.IO) {
-            val collection = sdk29AndUp {
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
-            } ?: MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-
-            val projection = arrayOf(
-                MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.DISPLAY_NAME,
-                MediaStore.Images.Media.WIDTH,
-                MediaStore.Images.Media.HEIGHT,
-            )
-            val photos = mutableListOf<SharedStoragePhoto>()
-            contentResolver.query(
-                collection,
-                projection,
-                null,
-                null,
-                "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
-            )?.use { cursor ->
-                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-                val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
-                val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
-
-                while(cursor.moveToNext()) {
-                    val id = cursor.getLong(idColumn)
-                    val displayName = cursor.getString(displayNameColumn)
-                    val width = cursor.getInt(widthColumn)
-                    val height = cursor.getInt(heightColumn)
-                    val contentUri = ContentUris.withAppendedId(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                        id
-                    )
-                    photos.add(SharedStoragePhoto(id, displayName, width, height, contentUri))
-                }
-                photos.toList()
-            } ?: listOf()
-        }
-    }
-
-    /*
-    val takePhoto = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bmp ->
-        val isPrivate = false
-        val isSavedSuccessfully = bmp?.let {
-            if (writePermissionGranted) {
-                savePhotoToExternalStorage(UUID.randomUUID().toString(), it)
-            } else false
-        } ?: false
-
-        if(isPrivate) {
-            //loadPhotosFromInternalStorageIntoRecyclerView()
-        }
-        if(isSavedSuccessfully) {
-            Toast.makeText(this, "Photo saved successfully", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Failed to save photo", Toast.LENGTH_SHORT).show()
-        }
-
-    }
-     */
 }

@@ -10,21 +10,23 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.view.LifecycleCameraController
 import androidx.core.content.ContextCompat
 import com.example.snapmedia.SharedStoragePhoto
+import com.example.snapmedia.externalstorage.savePhotoToExternalStorage
 import java.util.UUID
 
 
 /**
  * Takes an image and then runs {onPhotoTaken} function on the resulting image
- * @param {controller} : LifecycleCameraController
+ * @param {context: Context}
+ *      the application context
+ * @param {controller : LifecycleCameraController}
  *      the controller for the camera
  * @param {onPhotoTaken} : (Bitmap) -> Unit
  *      function ran on resulting image bitmap
  */
 fun takePhoto(
     context: Context,
-    contentResolver: ContentResolver,
     controller: LifecycleCameraController,
-    onPhotoTaken: (SharedStoragePhoto) -> Unit
+    onPhotoTaken: (Bitmap) -> Unit
 ) {
 
     // Edge: Handle missing permissions
@@ -54,15 +56,7 @@ fun takePhoto(
                     true
                 )
 
-                val photo: SharedStoragePhoto? = savePhotoToExternalStorage(contentResolver, UUID.randomUUID().toString(), rotatedBitmap)
-                if (photo != null) {
-                    onPhotoTaken(photo)
-                }
-            }
-
-            // Handling image capture failure
-            override fun onError(exception: ImageCaptureException) {
-                super.onError(exception)
+                onPhotoTaken(rotatedBitmap)
             }
         }
     )

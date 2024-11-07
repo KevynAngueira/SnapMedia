@@ -8,6 +8,8 @@ import androidx.core.content.ContextCompat
 
 /**
  * Checks if proper permissions have been granted to use CameraX
+ * @param {context: Context}
+ *      the application context
  * @return {boolean}
  *      True if all permissions granted, false otherwise
  */

@@ -1,4 +1,5 @@
 package com.example.snapmedia
+
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -22,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.compose.rememberImagePainter
-
 
 // Creates UI item to display the gallery of captured images
 @Composable

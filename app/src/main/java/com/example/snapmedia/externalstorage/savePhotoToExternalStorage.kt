@@ -1,4 +1,4 @@
-package com.example.snapmedia.primitives
+package com.example.snapmedia.externalstorage
 
 import android.content.ContentResolver
 import android.content.ContentValues
@@ -10,13 +10,19 @@ import java.io.IOException
 
 /**
  * Saves a given image in bitmap form to External/Scoped storage
- * @param {controller} : LifeCycleCameraController
- *      the Camera controller
- * @param {onPhotoTaken} : Function
- *      The function to be performed on the image
+ * @param {contentResolver : ContentResolver}
+ *      the application content resolver
+ * @param {displayName : String}
+ *      the name to save the photo under
+ * @param {bmp : Bitmap}
+ *      the bitmap of the image to be saved
+ * @return {SharedStoragePhoto}
+ *      the saved image
  */
 fun savePhotoToExternalStorage(
-    contentResolver: ContentResolver, displayName: String, bmp: Bitmap
+    contentResolver: ContentResolver,
+    displayName: String,
+    bmp: Bitmap
 ): SharedStoragePhoto? {
     // Get MediaStore URI dependent on build version
     val imageCollection = sdk29AndUp {
