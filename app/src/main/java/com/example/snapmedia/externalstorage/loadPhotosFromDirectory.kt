@@ -2,6 +2,7 @@ package com.example.snapmedia.externalstorage
 
 import android.content.ContentResolver
 import android.content.ContentUris
+import android.database.Cursor
 import android.provider.MediaStore
 import com.example.snapmedia.SharedStoragePhoto
 import com.example.snapmedia.sdk29AndUp
@@ -10,12 +11,13 @@ import kotlinx.coroutines.withContext
 
 
 /**
- * Loads all images from External/Scoped storage
+ * Loads all images from external subdirectory
  * @param {contentResolver : ContentResolver}
  *      the application content resolver
  */
-suspend fun loadPhotosFromExternalStorage(
-    contentResolver: ContentResolver
+suspend fun loadPhotosFromDirectory(
+    contentResolver: ContentResolver,
+    subdirectory: String
 ): List<SharedStoragePhoto> {
 
     return withContext(Dispatchers.IO) {
@@ -23,20 +25,28 @@ suspend fun loadPhotosFromExternalStorage(
             MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
         } ?: MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
+        // Filter to specified columns
         val projection = arrayOf(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
         )
+
+        // Filter to images from specified subdirectory
+        val selection = "${MediaStore.Images.Media.RELATIVE_PATH} LIKE ?"
+        val selectionArgs = arrayOf("Pictures/$subdirectory/%")
+
         val photos = mutableListOf<SharedStoragePhoto>()
-        contentResolver.query(
+        val cursor: Cursor? = contentResolver.query(
             collection,
             projection,
-            null,
-            null,
+            selection,
+            selectionArgs,
             "${MediaStore.Images.Media.DISPLAY_NAME} ASC"
-        )?.use { cursor ->
+        )
+
+        cursor?.use{
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)

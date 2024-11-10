@@ -1,17 +1,12 @@
 package com.example.snapmedia.primitives
 
-import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import androidx.camera.core.ImageCapture.OnImageCapturedCallback
-import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.LifecycleCameraController
 import androidx.core.content.ContextCompat
-import com.example.snapmedia.SharedStoragePhoto
-import com.example.snapmedia.externalstorage.savePhotoToExternalStorage
-import java.util.UUID
 
 
 /**

@@ -11,11 +11,14 @@ import kotlinx.coroutines.launch
 
 import com.example.snapmedia.externalstorage.loadPhotosFromExternalStorage
 import com.example.snapmedia.externalstorage.savePhotoToExternalStorage
+import com.example.snapmedia.externalstorage.savePhotoToDirectory
+import com.example.snapmedia.externalstorage.loadPhotosFromDirectory
 import java.util.UUID
 
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val contentResolver: ContentResolver = application.contentResolver
+    private val imageDirectory = "snapmedia"
 
     private val _photos = MutableStateFlow<List<SharedStoragePhoto>>(emptyList())
     val photos = _photos.asStateFlow()
@@ -27,14 +30,14 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
     // Load external images from MediaStore
     private fun loadExternalImages() {
         viewModelScope.launch {
-            val externalImages = loadPhotosFromExternalStorage(contentResolver)
+            val externalImages = loadPhotosFromDirectory(contentResolver, imageDirectory)
             _photos.value = externalImages
         }
     }
 
     // Add newly captured image to the list
     fun onTakePhoto(bitmap: Bitmap) {
-        val newPhoto: SharedStoragePhoto? = savePhotoToExternalStorage(contentResolver, UUID.randomUUID().toString(), bitmap)
+        val newPhoto: SharedStoragePhoto? = savePhotoToDirectory(contentResolver, imageDirectory, UUID.randomUUID().toString(), bitmap)
         if(newPhoto != null) {
             _photos.value += newPhoto
         }

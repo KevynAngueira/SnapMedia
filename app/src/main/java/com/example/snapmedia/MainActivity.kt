@@ -48,7 +48,7 @@ import com.example.snapmedia.primitives.takePhoto
 import com.example.snapmedia.primitives.recordVideo
 
 class MainActivity : ComponentActivity() {
-    //TODO
+
     private var readPermissionGranted = false
     private var writePermissionGranted = false
     private lateinit var permissionsLauncher: ActivityResultLauncher<Array<String>>
@@ -109,6 +109,8 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+
+
                 val viewModel = viewModel<GalleryViewModel>()
                 val photos by viewModel.photos.collectAsState()
 
