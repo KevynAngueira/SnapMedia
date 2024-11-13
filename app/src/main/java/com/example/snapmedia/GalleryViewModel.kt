@@ -1,17 +1,45 @@
 package com.example.snapmedia
 
+import android.app.Application
+import android.content.ContentResolver
 import android.graphics.Bitmap
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
-// Temporary Image Storage for Gallery
+import com.example.snapmedia.externalstorage.loadPhotosFromExternalStorage
+import com.example.snapmedia.externalstorage.savePhotoToExternalStorage
+import com.example.snapmedia.externalstorage.savePhotoToDirectory
+import com.example.snapmedia.externalstorage.loadPhotosFromDirectory
+import java.util.UUID
 
-class GalleryViewModel: ViewModel() {
-    private val _bitmaps = MutableStateFlow<List<Bitmap>>(emptyList())
-    val bitmaps = _bitmaps.asStateFlow()
+class GalleryViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val contentResolver: ContentResolver = application.contentResolver
+    private val imageDirectory = "snapmedia"
+
+    private val _photos = MutableStateFlow<List<SharedStoragePhoto>>(emptyList())
+    val photos = _photos.asStateFlow()
+
+    init {
+        loadExternalImages()
+    }
+
+    // Load external images from MediaStore
+    private fun loadExternalImages() {
+        viewModelScope.launch {
+            val externalImages = loadPhotosFromDirectory(contentResolver, imageDirectory)
+            _photos.value = externalImages
+        }
+    }
+
+    // Add newly captured image to the list
     fun onTakePhoto(bitmap: Bitmap) {
-        _bitmaps.value += bitmap
+        val newPhoto: SharedStoragePhoto? = savePhotoToDirectory(contentResolver, imageDirectory, UUID.randomUUID().toString(), bitmap)
+        if(newPhoto != null) {
+            _photos.value += newPhoto
+        }
     }
 }
