@@ -3,6 +3,7 @@ package com.example.snapmedia
 import android.app.Application
 import android.content.ContentResolver
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,18 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         val newPhoto: SharedStoragePhoto? = savePhotoToDirectory(contentResolver, imageDirectory, UUID.randomUUID().toString(), bitmap)
         if(newPhoto != null) {
             _photos.value += newPhoto
+        }
+    }
+
+    // Delete a photo by its URI
+    fun deletePhoto(photo: SharedStoragePhoto) {
+        viewModelScope.launch {
+            val uri: Uri = photo.contentUri
+            val deletedRows = contentResolver.delete(uri, null, null )
+
+            if (deletedRows > 0) {
+                _photos.value = photos.value.filter { it.id != photo.id }
+            }
         }
     }
 }

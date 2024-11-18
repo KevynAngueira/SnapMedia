@@ -5,13 +5,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Environment
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.video.AudioConfig
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -19,23 +26,32 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.max
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -44,20 +60,18 @@ import kotlinx.coroutines.launch
 
 import com.example.snapmedia.primitives.hasRequiredPermissions
 import com.example.snapmedia.primitives.CAMERAX_PERMISSIONS
+import com.example.snapmedia.primitives.isRecordingInProgress
 import com.example.snapmedia.primitives.takePhoto
 import com.example.snapmedia.primitives.recordVideo
+import kotlinx.coroutines.delay
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
+    private var recording: Recording? = null
     private var readPermissionGranted = false
     private var writePermissionGranted = false
     private lateinit var permissionsLauncher: ActivityResultLauncher<Array<String>>
-
-    /*
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var photosAdapter: SharedPhotoAdapter
-    private lateinit var photosList: List<SharedStoragePhoto>
-     */
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,28 +92,8 @@ class MainActivity : ComponentActivity() {
         }
         updateOrRequestPermissions()
 
-        /*
-        setContentView(R.layout.activity_photos)
-
-        recyclerView = findViewById(R.id.recyclerView)
-        recyclerView.layoutManager = GridLayoutManager(this, 2)
-        photosAdapter = SharedPhotoAdapter(emptyList()) // Initialize with empty list
-        recyclerView.adapter = photosAdapter
-
-
-        // Load photos from external storage in a coroutine
-        lifecycleScope.launch {
-            photosList = loadPhotosFromExternalStorage()
-            // Update the adapter with the loaded photos
-            photosAdapter = SharedPhotoAdapter(photosList)
-            recyclerView.adapter = photosAdapter
-        }
-        */
-
-        ///*
-        setContent{
+        setContent {
             SnapMediaTheme {
-
                 val scope = rememberCoroutineScope()
                 val scaffoldState = rememberBottomSheetScaffoldState()
                 val controller = remember {
@@ -111,18 +105,38 @@ class MainActivity : ComponentActivity() {
                 }
 
 
+                // Track recording state and elapsed time
+                var isRecording by remember { mutableStateOf(false) }
+                var elapsedTime by remember { mutableStateOf(0) }
+                val maxTime = 15
+
+                // Create a LaunchedEffect to update elapsed time while recording
+                LaunchedEffect(isRecording) {
+                    if (isRecording) {
+                        while (isRecording && elapsedTime < maxTime) {
+                            delay(1000) // Delay for 1 second
+                            elapsedTime++
+                        }
+
+                        if (elapsedTime >= maxTime) {
+                            isRecording = false
+                            elapsedTime = 0
+                        }
+                    }
+                }
+
+
                 val viewModel = viewModel<GalleryViewModel>()
                 val photos by viewModel.photos.collectAsState()
 
-                // Creating Scaffold to house gallery
                 BottomSheetScaffold(
                     scaffoldState = scaffoldState,
                     sheetPeekHeight = 0.dp,
                     sheetContent = {
                         GalleryContent(
                             photos = photos,
-                            modifier = Modifier
-                                .fillMaxWidth()
+                            onImageDelete = viewModel::deletePhoto,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 ) { padding ->
@@ -131,17 +145,16 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(padding)
                     ) {
-                        // CameraPreview: Shows what the camera sees (Specified inn its own file)
                         CameraPreview(
                             controller = controller,
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // Button to flip camera between front and back
+                        // Camera switch button
                         IconButton(
                             onClick = {
                                 controller.cameraSelector =
-                                    if(controller.cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+                                    if (controller.cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
                                         CameraSelector.DEFAULT_FRONT_CAMERA
                                     } else CameraSelector.DEFAULT_BACK_CAMERA
                             },
@@ -153,7 +166,30 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Bottom button container, contains: Gallery, Take Photo
+
+                        // Recording indicator
+                        if (isRecording) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .padding(16.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = elapsedTime / (maxTime.toFloat()),
+                                    strokeWidth = 8.dp,
+                                    modifier = Modifier.size(100.dp)
+                                )
+                                Text(
+                                    text = "$elapsedTime s",
+                                    style = MaterialTheme.typography.headlineSmall
+                                        .copy(color = Color.White),
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
+                            }
+                        }
+
+
+                        // Bottom button container
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -196,8 +232,15 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     recordVideo(
                                         context = applicationContext,
-                                        controller = controller
+                                        controller = controller,
+                                        subdirectory = "snapmedia",
+                                        timedStop = (maxTime*1000).toLong()
                                     )
+
+                                    isRecording = isRecordingInProgress()
+                                    if (!isRecording) {
+                                        elapsedTime = 0
+                                    }
                                 }
                             ) {
                                 Icon(
@@ -206,12 +249,10 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-
                     }
                 }
             }
         }
-         //*/
     }
 
     //TODO: Ensure external storage code is working
@@ -251,3 +292,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+

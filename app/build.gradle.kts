@@ -63,6 +63,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.5.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.appcompat)
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
@@ -74,6 +75,8 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.15.0")
     implementation("io.coil-kt:coil-compose:2.3.0")
     //kapt("com.github.bumptech.glide:compiler:4.15.0")
+
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
 
     val cameraxVersion = "1.3.0-rc01"
 
