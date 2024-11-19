@@ -6,15 +6,21 @@ import androidx.activity.compose.setContent
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraX
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.Preview
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
@@ -31,6 +37,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +48,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -63,6 +72,7 @@ import com.example.snapmedia.primitives.CAMERAX_PERMISSIONS
 import com.example.snapmedia.primitives.isRecordingInProgress
 import com.example.snapmedia.primitives.takePhoto
 import com.example.snapmedia.primitives.recordVideo
+import com.example.snapmedia.server.SmartPilotService
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -73,11 +83,22 @@ class MainActivity : ComponentActivity() {
     private var writePermissionGranted = false
     private lateinit var permissionsLauncher: ActivityResultLauncher<Array<String>>
 
+    private var cameraController : LifecycleCameraController? = null
+
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Get permissions
+        // Server Permissions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                0
+            )
+        }
+
+        // Camera and Video Permissions
         // TODO: Change this for real permission handling
         if (!hasRequiredPermissions(applicationContext)) {
             ActivityCompat.requestPermissions(
@@ -85,12 +106,15 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        //externalStoragePhotoAdapter = SharedPhotoAdapter { }
+        // Read and Write external storage permissions
         permissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             readPermissionGranted = permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: readPermissionGranted
             writePermissionGranted = permissions[Manifest.permission.WRITE_EXTERNAL_STORAGE] ?: writePermissionGranted
         }
         updateOrRequestPermissions()
+
+        Log.d("MainActivity2", "Read: $readPermissionGranted")
+        Log.d("MainActivity2", "Write: $writePermissionGranted")
 
         setContent {
             SnapMediaTheme {
@@ -104,6 +128,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                cameraController = controller
 
                 // Track recording state and elapsed time
                 var isRecording by remember { mutableStateOf(false) }
@@ -248,6 +273,38 @@ class MainActivity : ComponentActivity() {
                                     contentDescription = "Record Video"
                                 )
                             }
+
+                            // Start Server Button
+                            IconButton(
+                                onClick = {
+                                    Intent(applicationContext, SmartPilotService::class.java).also {
+                                        it.action = SmartPilotService.Actions.START.toString()
+                                        startService(it)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Start Server",
+                                    tint = Color.Green
+                                )
+                            }
+
+                            // Take Photo Button
+                            IconButton(
+                                onClick = {
+                                    Intent(applicationContext, SmartPilotService::class.java).also {
+                                        it.action = SmartPilotService.Actions.STOP.toString()
+                                        startService(it)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Stop,
+                                    contentDescription = "Stop Server",
+                                    tint = Color.Red
+                                )
+                            }
                         }
                     }
                 }
@@ -290,6 +347,32 @@ class MainActivity : ComponentActivity() {
         if(permissionsToRequest.isNotEmpty()){
             permissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
+    }
+
+    /// Release Camera when the app goes to background or is destroyed
+    private fun releaseCamera() {
+        // Unbind all use cases (this will stop camera preview and other use cases)
+        cameraController?.unbind()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Release the camera when the activity goes to the background
+        releaseCamera()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Release the camera when the activity is destroyed
+        releaseCamera()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Reinitialize and rebind the camera when the app comes to the foreground
+        cameraController?.bindToLifecycle(
+            this
+        )
     }
 }
 

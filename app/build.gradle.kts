@@ -88,4 +88,8 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("androidx.camera:camera-extensions:$cameraxVersion")
 
+    implementation("androidx.appcompat:appcompat:1.6.0")
+    implementation("org.nanohttpd:nanohttpd:2.3.1") // NanoHTTPD for HTTP server
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("com.squareup.okhttp3:okhttp:4.10.0")
 }
