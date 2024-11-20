@@ -1,4 +1,4 @@
-package com.example.snapmedia
+package com.example.snapmedia.old
 
 import android.view.LayoutInflater
 import android.view.View
@@ -7,6 +7,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.example.snapmedia.R
+import com.example.snapmedia.SharedStoragePhoto
 
 class SharedPhotoAdapter(private val photos: List<SharedStoragePhoto>) : RecyclerView.Adapter<SharedPhotoAdapter.PhotoViewHolder>() {
 

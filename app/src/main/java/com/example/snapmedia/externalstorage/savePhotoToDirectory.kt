@@ -54,16 +54,17 @@ fun savePhotoToDirectory(
                     }
                 } ?: throw IOException("Null output stream")
             }
-        } ?: throw IOException("Couldn't create MediaStore entry")
 
-        val id = uri.lastPathSegment?.toLongOrNull() ?: -1L
-        SharedStoragePhoto(
-            id = id,
-            name = displayName,
-            width = bmp.width,
-            height = bmp.height,
-            contentUri = uri
-        )
+            val id = uri.lastPathSegment?.toLongOrNull() ?: -1L
+            SharedStoragePhoto(
+                id = id,
+                name = displayName,
+                width = bmp.width,
+                height = bmp.height,
+                contentUri = uri
+            )
+
+        } ?: throw IOException("Couldn't create MediaStore entry")
 
     } catch (e: IOException) {
         e.printStackTrace()
