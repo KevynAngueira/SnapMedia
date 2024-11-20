@@ -2,6 +2,7 @@ package com.example.snapmedia.server
 
 import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.example.snapmedia.SharedStoragePhoto
 import com.example.snapmedia.externalstorage.loadPhotosFromDirectory
@@ -69,7 +70,7 @@ interface SmartPilotController {
         }
 
         // Extract the display names (or any other identifier) from the list of images
-        val imageNames = images.map { it.name }
+        val imageNames = images.map { it.contentUri }
 
         // Return the image names as a JSON response
         val jsonResponse = "{\"images\": ${imageNames.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }}}"
@@ -77,32 +78,43 @@ interface SmartPilotController {
     }
 
     /**
-     * Serves the image file of the requested image from the given directory
+     * Serves the image file of the requested image from the given URI
+     * @param {contentResolver : ContentResolver}
+     *      the current content resolver of the application
      * @param {session : IHTTPSession}
-     *      the current request session, contains the image name query parameters
-     * @param {subdirectory : String}
-     *      the directory the image is stored inside
+     *      the current request session, contains the uri query parameters
      * @return {Response}
      *      the response containing the requested image file
      */
-    fun serveImageFile(session: IHTTPSession?, subdirectory: String): Response {
-        // Extract image name from the query parameters
-        val imageName = session?.queryParameterString
+    fun serveImageURI(contentResolver: ContentResolver, session: IHTTPSession?): Response {
+        // Extract image URI from the query parameters (make sure to decode it properly)
+        val imageUriString = session?.queryParameterString?.let {
+            Uri.decode(it) // Decode URI in case it's URL encoded
+        }
 
-        // Build the full file path to the image
-        val filePath = "/storage/emulated/0/Pictures/$subdirectory/$imageName"
+        // Check if the image URI is not null or empty
+        if (imageUriString.isNullOrEmpty()) {
+            return newFixedLengthResponse("Image URI parameter missing or invalid.")
+        }
 
-        // Create a File object from the path
-        val imageFile = File(filePath)
+        // Convert the URI string into an actual Uri object
+        val imageUri: Uri = Uri.parse(imageUriString)
 
-        // Check if the file exists and return the appropriate response
-        return if (imageFile.exists()) {
-            // Get the MIME type based on the file extension
-            val mimeType = getMimeType(filePath)
-            newChunkedResponse(Response.Status.OK, mimeType, imageFile.inputStream())
-        } else {
-            // If the image doesn't exist, return a 404 message
-            newFixedLengthResponse("Image not found.")
+        try {
+            // Check if the image exists
+            val mimeType = contentResolver.getType(imageUri) ?: "application/octet-stream"
+            val imageStream = contentResolver.openInputStream(imageUri)
+
+            // If the image is found, return it as a chunked response
+            return if (imageStream != null) {
+                newChunkedResponse(Response.Status.OK, mimeType, imageStream)
+            } else {
+                // If the image couldn't be opened, return a 404 response
+                newFixedLengthResponse("Image not found or cannot be opened.")
+            }
+        } catch (e: Exception) {
+            // If any error occurs (e.g., invalid URI or IO issue), return a 500 error
+            return newFixedLengthResponse("Error serving image: ${e.message}")
         }
     }
 
@@ -135,22 +147,6 @@ interface SmartPilotController {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         val date = Date()
         return dateFormat.format(date)
-    }
-
-    /**
-     * Returns the mime type of the given image file
-     * @param {filePath : String}
-     *      the file path of the given image
-     * @return {String}
-     *      the mime type of the given image
-     */
-    private fun getMimeType(filePath: String): String {
-        return when {
-            filePath.endsWith(".jpg", true) || filePath.endsWith(".jpeg", true) -> "image/jpeg"
-            filePath.endsWith(".png", true) -> "image/png"
-            filePath.endsWith(".gif", true) -> "image/gif"
-            else -> "application/octet-stream"
-        }
     }
 
     /**

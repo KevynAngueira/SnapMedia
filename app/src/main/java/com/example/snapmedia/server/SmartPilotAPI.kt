@@ -49,7 +49,7 @@ class SmartPilotAPI (private val context: Context): NanoHTTPD("0.0.0.0",8080), S
 
             "/images/list" -> serveImageList(contentResolver, subdirectory)
 
-            "/images" -> serveImageFile(session, subdirectory)
+            "/images" -> serveImageURI(contentResolver, session)
 
             "/page" -> servePage(context, "ImagePage.html")
 
