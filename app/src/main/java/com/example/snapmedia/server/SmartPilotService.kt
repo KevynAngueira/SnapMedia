@@ -10,6 +10,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+/**
+ * Manages the foreground service that instantiates the SmartPilotAPI
+ */
 class SmartPilotService : Service() {
 
     private lateinit var server : SmartPilotAPI

@@ -27,7 +27,9 @@ import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.compose.rememberImagePainter
 
-// Creates UI item to display the gallery of captured images
+/**
+ * Defines how to display the Image Gallery as a UI element
+ */
 @Composable
 fun GalleryContent(
     photos: List<SharedStoragePhoto>,  // List of images URIs
@@ -72,41 +74,3 @@ fun GalleryContent(
         }
     }
 }
-
-/*
-// Old Code, temporary storage in memory
-// Temporary Gellery Content
-@Composable
-fun GalleryContent(
-    bitmaps: List<Bitmap>,
-    modifier: Modifier = Modifier
-) {
-    if(bitmaps.isEmpty()) {
-        Box(
-            modifier = modifier
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("There are no photos yet")
-        }
-    }
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalItemSpacing = 16.dp,
-        contentPadding = PaddingValues(16.dp),
-        modifier = modifier
-    ) {
-        items(bitmaps.size) { index ->
-            val bitmap = bitmaps[index]
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-            )
-
-        }
-    }
-}
- */

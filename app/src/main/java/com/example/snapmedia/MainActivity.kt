@@ -349,7 +349,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /// Release Camera when the app goes to background or is destroyed
+    // TODO: Add proper camera release and rebind to address errors
+    // Release Camera when the app goes to background or is destroyed
     private fun releaseCamera() {
         // Unbind all use cases (this will stop camera preview and other use cases)
         cameraController?.unbind()

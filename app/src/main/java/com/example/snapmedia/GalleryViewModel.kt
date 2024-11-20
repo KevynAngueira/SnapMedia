@@ -16,6 +16,24 @@ import com.example.snapmedia.externalstorage.savePhotoToDirectory
 import com.example.snapmedia.externalstorage.loadPhotosFromDirectory
 import java.util.UUID
 
+/**
+ * The view model that controls the Image Gallery and image external storage. Displays, saves, loads,
+ * and deletes images stored in the "snapmedia" image subdirectory
+ *
+ * Attributes
+ * ----------
+ * @param {application : Application}
+ *      the current application
+ *
+ * Public Methods
+ * --------------
+ * @fun loadExternalImages()
+ *      Loads images from the "snapmedia" subdirectory to the gallery
+ * @fun onTakePhoto(bitmap)
+ *      Saves the photo to "snapmedia" subdirectory and adds the photo to the gallery
+ * @fun deletePhoto(photo)
+ *      Deletes the chosen photo and removes it from the gallery
+ */
 class GalleryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val contentResolver: ContentResolver = application.contentResolver
@@ -28,7 +46,9 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         loadExternalImages()
     }
 
-    // Load external images from MediaStore
+    /**
+     * Loads images from the "snapmedia" subdirectory to the gallery
+     */
     private fun loadExternalImages() {
         viewModelScope.launch {
             val externalImages = loadPhotosFromDirectory(contentResolver, imageDirectory)
@@ -36,7 +56,11 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Add newly captured image to the list
+    /**
+     * Saves the photo to "snapmedia" subdirectory and adds the photo to the gallery
+     * @param {bitmap : Bitmap}
+     *      the image to save in bitmap form
+     */
     fun onTakePhoto(bitmap: Bitmap) {
         val newPhoto: SharedStoragePhoto? = savePhotoToDirectory(contentResolver, imageDirectory, UUID.randomUUID().toString(), bitmap)
         if(newPhoto != null) {
@@ -44,7 +68,11 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Delete a photo by its URI
+    /**
+     * Deletes the chosen photo and removes it from the gallery
+     * @param {photo : SharedStoragePhoto}
+     *      the photo to delete
+     */
     fun deletePhoto(photo: SharedStoragePhoto) {
         viewModelScope.launch {
             val uri: Uri = photo.contentUri
