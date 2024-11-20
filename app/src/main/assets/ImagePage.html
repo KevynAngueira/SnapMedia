@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Images</title>
+
+        <script>
+            // Fetch images from the server and display them on the page
+            window.onload = function() {
+                fetch('/images/list')
+                    .then(response => response.json())
+                    .then(data => {
+                        const images = data.images || [];
+                        const imageListContainer = document.getElementById('image-list');
+                        if (images.length > 0) {
+                            let imageListHtml = '<ul>';
+                            images.forEach(image => {
+                                imageListHtml += `<li>
+                                                    <img src="/images?${image}" alt="${image}" width="150" height="150">
+                                                    <br><strong>${image}</strong>
+                                                    </li>`;
+                            });
+                            imageListHtml += '</ul>';
+                            imageListContainer.innerHTML = imageListHtml;
+                        } else {
+                            imageListContainer.innerHTML = '<p>No images found.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching images:', error);
+                    });
+            }
+
+        </script>
+    </head>
+
+    <body>
+        <h1>Images in snapmedia Directory</h1>
+        <div id="image-list">Loading images...</div>
+    </body>
+
+</html>

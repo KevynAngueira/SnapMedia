@@ -1,6 +1,7 @@
 package com.example.snapmedia.server
 
 import android.content.ContentResolver
+import android.content.Context
 import android.util.Log
 import com.example.snapmedia.externalstorage.loadPhotosFromDirectory
 import fi.iki.elonen.NanoHTTPD
@@ -25,7 +26,10 @@ import java.io.File
  *  @fun stopServer()
  *      Stops the server
  */
-class SmartPilotAPI (private val contentResolver: ContentResolver): NanoHTTPD("0.0.0.0",8080), SmartPilotController {
+class SmartPilotAPI (private val context: Context): NanoHTTPD("0.0.0.0",8080), SmartPilotController {
+
+    private val subdirectory = "snapmedia"
+    private val contentResolver = context.contentResolver
 
     /**
      * Handles request to the server
@@ -37,14 +41,17 @@ class SmartPilotAPI (private val contentResolver: ContentResolver): NanoHTTPD("0
     override fun serve(session: IHTTPSession?): Response {
         val uri = session?.uri
 
+
         Log.d("SmartPilotAPI", "Request $uri")
 
         return when (uri) {
             "/time" -> serveTime()
 
-            "/page" -> serveImagePage(contentResolver)
+            "/images/list" -> serveImageList(contentResolver, subdirectory)
 
-            "/images" -> serveImageFile(session)
+            "/images" -> serveImageFile(session, subdirectory)
+
+            "/page" -> servePage(context, "ImagePage.html")
 
             else -> newFixedLengthResponse("404 Not Found")
         }

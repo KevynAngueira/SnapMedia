@@ -1,7 +1,9 @@
 package com.example.snapmedia.server
 
 import android.content.ContentResolver
+import android.content.Context
 import android.util.Log
+import com.example.snapmedia.SharedStoragePhoto
 import com.example.snapmedia.externalstorage.loadPhotosFromDirectory
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
@@ -9,7 +11,9 @@ import fi.iki.elonen.NanoHTTPD.Response
 import fi.iki.elonen.NanoHTTPD.newChunkedResponse
 import fi.iki.elonen.NanoHTTPD.newFixedLengthResponse
 import kotlinx.coroutines.runBlocking
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,6 +40,8 @@ import java.util.Locale
  */
 interface SmartPilotController {
 
+    // ---- Public Methods ----
+
     /**
      * Serves the current time in yyyy-MM-dd HH:mm:ss format
      * @return {Response}
@@ -48,60 +54,43 @@ interface SmartPilotController {
     }
 
     /**
-     * Serves the "image page" displaying all images stored in the "snapmedia" subdirectory
-     * @param {contentResolver: ContentResolver}
-     *      the contentResolver of the application
+     * Serves the list of image names in the given directory
+     * @param {contentResolver : ContentResolver}
+     *      the current application contentResolver
+     * @param {subdirectory : String}
+     *      the directory the image is stored inside
      * @return {Response}
-     *      the response containing the "image page"
+     *      the response containing the list of images
      */
-    fun serveImagePage(contentResolver: ContentResolver): Response {
+    fun serveImageList(contentResolver: ContentResolver, subdirectory: String): Response {
+        // Load images from the "snapmedia" directory using MediaStore
         val images = runBlocking {
-            loadPhotosFromDirectory(contentResolver, "snapmedia")
+            loadPhotosFromDirectory(contentResolver, subdirectory)
         }
 
-        Log.d("SmartPilotAPI", "Loaded images: $images")
+        // Extract the display names (or any other identifier) from the list of images
+        val imageNames = images.map { it.name }
 
-        val htmlContent = StringBuilder()
-        htmlContent.append("<html>")
-        htmlContent.append("<head><title>Images</title></head>")
-        htmlContent.append("<body>")
-        htmlContent.append("<h1>Images in snapmedia Directory</h1>")
-
-        if (images.isNotEmpty()) {
-            htmlContent.append("<ul>")
-            for (image in images) {
-                // Use the image name or a unique identifier for the image in the URL
-                val imageName = image.name // Use the filename or UUID as the image identifier
-                htmlContent.append("<li>")
-                // Link to the image using the /images route
-                htmlContent.append("<img src=\"/images?$imageName\" alt=\"${image.name}\" width=\"150\" height=\"150\">")
-                htmlContent.append("<br><strong>${image.name}</strong>")
-                htmlContent.append("</li>")
-            }
-            htmlContent.append("</ul>")
-        } else {
-            htmlContent.append("<p>No images found.</p>")
-        }
-
-        htmlContent.append("</body>")
-        htmlContent.append("</html>")
-
-        return newFixedLengthResponse(htmlContent.toString())
+        // Return the image names as a JSON response
+        val jsonResponse = "{\"images\": ${imageNames.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }}}"
+        return NanoHTTPD.newFixedLengthResponse(jsonResponse)
     }
 
     /**
-     * Serves the image file of the requested image
+     * Serves the image file of the requested image from the given directory
      * @param {session : IHTTPSession}
      *      the current request session, contains the image name query parameters
+     * @param {subdirectory : String}
+     *      the directory the image is stored inside
      * @return {Response}
      *      the response containing the requested image file
      */
-    fun serveImageFile(session: IHTTPSession?): Response {
+    fun serveImageFile(session: IHTTPSession?, subdirectory: String): Response {
         // Extract image name from the query parameters
         val imageName = session?.queryParameterString
 
         // Build the full file path to the image
-        val filePath = "/storage/emulated/0/Pictures/snapmedia/$imageName"
+        val filePath = "/storage/emulated/0/Pictures/$subdirectory/$imageName"
 
         // Create a File object from the path
         val imageFile = File(filePath)
@@ -116,6 +105,26 @@ interface SmartPilotController {
             newFixedLengthResponse("Image not found.")
         }
     }
+
+    /**
+     * Serves the requested html page
+     * @param {context : Context}
+     *      the current application context
+     * @param {pageName : String}
+     *      the name of the page to load
+     * @return {Response}
+     *      the response containing the page
+     */
+    fun servePage(context: Context, pageName: String): Response {
+
+        // Read the HTML template from assets folder
+        val htmlTemplate = loadHtmlTemplate(context, pageName)
+
+        // Return the response with the updated HTML
+        return newFixedLengthResponse(htmlTemplate)
+    }
+
+    // ---- Private Methods ----
 
     /**
      * Returns the current time in yyyy-MM-dd HH:mm:ss format
@@ -144,5 +153,19 @@ interface SmartPilotController {
         }
     }
 
-
+    /**
+     * Load the HTML template from the assets folder
+     * @param {context : Context}
+     *      the application context
+     * @param {pageName}
+     *      the name of the html file to load
+     * @return {String}
+     *      the HTML template as a string
+     */
+    fun loadHtmlTemplate(context: Context, pageName: String): String {
+        val assetManager = context.assets
+        val inputStream = assetManager.open(pageName)
+        val reader = BufferedReader(InputStreamReader(inputStream))
+        return reader.use { it.readText() }
+    }
 }

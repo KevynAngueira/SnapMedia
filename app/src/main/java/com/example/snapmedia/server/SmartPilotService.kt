@@ -20,7 +20,7 @@ class SmartPilotService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        server = SmartPilotAPI(applicationContext.contentResolver)
+        server = SmartPilotAPI(applicationContext)
     }
 
     override fun onBind(p0: Intent?) :IBinder? {
