@@ -64,17 +64,23 @@ interface SmartPilotController {
      *      the response containing the list of images
      */
     fun serveImageList(contentResolver: ContentResolver, subdirectory: String): Response {
-        // Load images from the "snapmedia" directory using MediaStore
         val images = runBlocking {
             loadPhotosFromDirectory(contentResolver, subdirectory)
         }
 
-        // Extract the display names (or any other identifier) from the list of images
-        val imageNames = images.map { it.contentUri }
+        val jsonResponse = "{\"images\": ${images.joinToString(prefix = "[", postfix = "]") {
+            """
+            {
+                "id": ${it.id},
+                "name": "${it.name}",
+                "width": ${it.width},
+                "height": ${it.height},
+                "contentUri": "${it.contentUri}"
+            }
+        """.trimIndent()
+        }}}"
 
-        // Return the image names as a JSON response
-        val jsonResponse = "{\"images\": ${imageNames.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }}}"
-        return NanoHTTPD.newFixedLengthResponse(jsonResponse)
+        return newFixedLengthResponse(jsonResponse)
     }
 
     /**
@@ -86,7 +92,7 @@ interface SmartPilotController {
      * @return {Response}
      *      the response containing the requested image file
      */
-    fun serveImageURI(contentResolver: ContentResolver, session: IHTTPSession?): Response {
+    fun serveImageFile(contentResolver: ContentResolver, session: IHTTPSession?): Response {
         // Extract image URI from the query parameters (make sure to decode it properly)
         val imageUriString = session?.queryParameterString?.let {
             Uri.decode(it) // Decode URI in case it's URL encoded
