@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Log
 import com.example.snapmedia.SharedStoragePhoto
 import com.example.snapmedia.externalstorage.loadPhotosFromDirectory
+import com.example.snapmedia.externalstorage.loadVideosFromDirectory
 import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import fi.iki.elonen.NanoHTTPD.Response
@@ -55,7 +56,7 @@ interface SmartPilotController {
     }
 
     /**
-     * Serves the list of image names in the given directory
+     * Serves the list of images in the given directory
      * @param {contentResolver : ContentResolver}
      *      the current application contentResolver
      * @param {subdirectory : String}
@@ -124,6 +125,75 @@ interface SmartPilotController {
         }
     }
 
+    /**
+     * Serves the list of videos in the given directory
+     * @param {contentResolver : ContentResolver}
+     *      the current application contentResolver
+     * @param {subdirectory : String}
+     *      the directory the image is stored inside
+     * @return {Response}
+     *      the response containing the list of videos
+     */
+    fun serveVideoList(contentResolver: ContentResolver, subdirectory: String): Response {
+        val videos = runBlocking {
+            loadVideosFromDirectory(contentResolver, subdirectory)
+        }
+
+        val jsonResponse = "{\"videos\": ${videos.joinToString(prefix = "[", postfix = "]") {
+            """
+            {
+                "id": ${it.id},
+                "name": "${it.name}",
+                "size": ${it.size},
+                "contentUri": "${it.contentUri}"
+            }
+        """.trimIndent()
+        }}}"
+
+        return newFixedLengthResponse(jsonResponse)
+    }
+
+    /**
+     * Serves the video file of the requested image from the given URI
+     * @param {contentResolver : ContentResolver}
+     *      the current content resolver of the application
+     * @param {session : IHTTPSession}
+     *      the current request session, contains the uri query parameters
+     * @return {Response}
+     *      the response containing the requested video file
+     */
+    fun serveVideoFile(contentResolver: ContentResolver, session: IHTTPSession?): Response {
+        // Extract image URI from the query parameters (make sure to decode it properly)
+        val videoUriString = session?.queryParameterString?.let {
+            Uri.decode(it) // Decode URI in case it's URL encoded
+        }
+
+        // Check if the image URI is not null or empty
+        if (videoUriString.isNullOrEmpty()) {
+            return newFixedLengthResponse("Image URI parameter missing or invalid.")
+        }
+
+        // Convert the URI string into an actual Uri object
+        val videoUri: Uri = Uri.parse(videoUriString)
+
+        try {
+            // Check if the image exists
+            val mimeType = contentResolver.getType(videoUri) ?: "application/octet-stream"
+            val videoStream = contentResolver.openInputStream(videoUri)
+
+            // If the image is found, return it as a chunked response
+            return if (videoStream != null) {
+                newChunkedResponse(Response.Status.OK, mimeType, videoStream)
+            } else {
+                // If the image couldn't be opened, return a 404 response
+                newFixedLengthResponse("Image not found or cannot be opened.")
+            }
+        } catch (e: Exception) {
+            // If any error occurs (e.g., invalid URI or IO issue), return a 500 error
+            return newFixedLengthResponse("Error serving image: ${e.message}")
+        }
+    }
+    
     /**
      * Serves the requested html page
      * @param {context : Context}

@@ -51,6 +51,10 @@ class SmartPilotAPI (private val context: Context): NanoHTTPD("0.0.0.0",8080), S
 
             "/images" -> serveImageFile(contentResolver, session)
 
+            "/videos/list" -> serveVideoList(contentResolver, subdirectory)
+
+            "/videos" -> serveVideoFile(contentResolver, session)
+
             "/page" -> servePage(context, "index.html")
 
             else -> newFixedLengthResponse("404 Not Found")

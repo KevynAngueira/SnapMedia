@@ -14,6 +14,10 @@ import kotlinx.coroutines.withContext
  * Loads all images from external subdirectory
  * @param {contentResolver : ContentResolver}
  *      the application content resolver
+ * @param {subdirectory : String}
+ *      the subdirectory to load images from
+ * @return {List<SharedStoragePhoto>}
+ *      the list of images
  */
 suspend fun loadPhotosFromDirectory(
     contentResolver: ContentResolver,

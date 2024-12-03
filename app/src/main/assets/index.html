@@ -8,8 +8,7 @@
         <script>
             const API_BASE_URL = 'http://10.0.2.2:5000'
 
-            // Function to fetch and display images from the first API
-            function loadImages() {
+            function displayImages() {
                 fetch('/images/list')
                     .then(response => response.json())
                     .then(data => {
@@ -37,49 +36,126 @@
                     });
             }
 
-            // Function to send selected images to the second API
-            function sendImages() {
-                const selectedImages = [];
-                const images = document.querySelectorAll('#image-list img');
+            function displayVideos() {
+                fetch('/videos/list')
+                    .then(response => response.json())
+                    .then(data => {
+                        const videos = data.videos || [];
+                        const videoListContainer = document.getElementById('video-list');
 
-                // Iterate over the images and get their actual filenames (alt attribute) and content URIs
-                images.forEach(img => {
-                    const image = {
-                        filename: img.alt,  // filename from 'alt' attribute
-                        uri: img.src.split('?')[1]  // URI from the 'src' attribute (after '?')
-                    };
-                    selectedImages.push(image);
-                });
-
-                selectedImages.forEach(image => {
-                    console.log("Sending image:", image.filename);  // Log the filename
-
-                    // Fetch the image stream from the Phone API using the content URI
-                    fetch(`/images?${image.uri}`)
-                        .then(response => response.blob()) // Convert the image stream to a Blob
-                        .then(imageBlob => {
-                            // Create a FormData object to send the image as binary data
-                            const formData = new FormData();
-                            formData.append('image', imageBlob, image.filename); // Use the filename as the file name
-
-                            // Send the image as FormData to the second API (outside the emulator)
-                            const request = `${API_BASE_URL}/image/send`;
-                            fetch(request, {
-                                method: 'POST',
-                                body: formData
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                console.log('Image sent successfully:', data);
-                            })
-                            .catch(error => {
-                                console.error('Error sending image:', error);
+                        if (videos.length > 0) {
+                            let videoListHtml = '<ul>';
+                            videos.forEach(video => {
+                                // Display the video with its filename and dimensions
+                                videoListHtml += `<li>
+                                                    <video controls src="/videos?${video.contentUri}" alt="${video.name}" width="150" height="150">
+                                                        Your browser does not support the video tag.
+                                                    </video>
+                                                    <br><strong>${video.name}</strong>
+                                                    <br>Size: ${video.size}
+                                                    </li>`;
                             });
-                        })
-                        .catch(error => {
-                            console.error('Error fetching image stream:', error);
-                        });
-                });
+                            videoListHtml += '</ul>';
+                            videoListContainer.innerHTML = videoListHtml;
+                        } else {
+                            videoListContainer.innerHTML = '<p>No videos found.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching videos:', error);
+                    });
+            }
+
+            function sendImages() {
+                // Fetch the list of images from the server
+                fetch('/images/list')
+                    .then(response => response.json())
+                    .then(data => {
+                        const images = data.images || [];  // Get the images from the response
+
+                        if (images.length > 0) {
+                            images.forEach(image => {
+                                console.log("Sending image:", image.name);  // Log the filename
+
+                                // Fetch the image stream from the Phone API using the content URI
+                                fetch(`/images?${image.contentUri}`)
+                                    .then(response => response.blob())  // Convert the image stream to a Blob
+                                    .then(imageBlob => {
+                                        // Create a FormData object to send the image as binary data
+                                        const formData = new FormData();
+                                        formData.append('image', imageBlob, image.name);  // Use the name as the file name
+
+                                        // Send the image as FormData to the second API (outside the emulator)
+                                        const request = `${API_BASE_URL}/image/send`;
+                                        fetch(request, {
+                                            method: 'POST',
+                                            body: formData
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            console.log('Image sent successfully:', data);
+                                        })
+                                        .catch(error => {
+                                            console.error('Error sending image:', error);
+                                        });
+                                    })
+                                    .catch(error => {
+                                        console.error('Error fetching image stream:', error);
+                                    });
+                            });
+                        } else {
+                            console.log('No images to send.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching image list:', error);
+                    });
+            }
+
+            function sendVideos() {
+                // Fetch the list of videos from the server
+                fetch('/videos/list')
+                    .then(response => response.json())
+                    .then(data => {
+                        const videos = data.videos || [];  // Get the videos from the response
+
+                        if (videos.length > 0) {
+                            videos.forEach(video => {
+                                console.log("Sending video:", video.name);  // Log the filename
+
+                                // Fetch the video stream from the Phone API using the content URI
+                                fetch(`/videos?${video.contentUri}`)
+                                    .then(response => response.blob())  // Convert the video stream to a Blob
+                                    .then(videoBlob => {
+                                        // Create a FormData object to send the video as binary data
+                                        const formData = new FormData();
+                                        formData.append('video', videoBlob, video.name);  // Use the name as the file name
+
+                                        // Send the video as FormData to the second API (outside the emulator)
+                                        const request = `${API_BASE_URL}/video/send`;
+                                        fetch(request, {
+                                            method: 'POST',
+                                            body: formData
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            console.log('Video sent successfully:', data);
+                                        })
+                                        .catch(error => {
+                                            console.error('Error sending video:', error);
+                                        });
+                                    })
+                                    .catch(error => {
+                                        console.error('Error fetching video stream:', error);
+                                    });
+                            });
+                        } else {
+                            console.log('No videos to send.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching video list:', error);
+                    });
             }
 
             function testConnection() {
@@ -99,8 +175,13 @@
                     });
             }
 
-            // Load images when the page is loaded
-            window.onload = loadImages;
+            function displayFunction() {
+                displayImages();
+                displayVideos();
+            }
+
+            // Load images and video when the page is loaded
+            window.onload = displayFunction;
         </script>
     </head>
 
@@ -108,14 +189,25 @@
         <h1>Images in snapmedia Directory</h1>
 
         <!-- Button to reload images -->
-        <button onclick="loadImages()">Reload Images</button>
+        <button onclick="displayFunction()">Reload Media</button>
 
         <!-- Button to send images to second API -->
         <button onclick="sendImages()">Send Images to Second API</button>
 
+        <!-- Button to send videos to second API -->
+        <button onclick="sendVideos()">Send Videos to Second API</button>
+
         <!-- Button to test connection with the second API -->
         <button onclick="testConnection()">Test Connection to Second API</button>
 
+        <br><br>
+        <h5>Images</h5>
         <div id="image-list">Loading images...</div>
+
+
+        <br><br>
+        <h5>Videos</h5>
+        <div id="video-list">Loading Videos...</div>
+
     </body>
 </html>
